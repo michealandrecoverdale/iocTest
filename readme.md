@@ -217,7 +217,7 @@ Above code is simplified version of resolution part, in real implementation it n
 The most important part of above implementation is the instantiation process 
 
 ```typescript
-new model.type(...model.dependencies.map(x => resolve(x)))
+new model.type(...model.dependencies.map(x => solve(x)))
 ```
 
 Above code will create instance of the requested type and resolve the parameter recursively. For example if we request the `AltCoins` class, the component model is like be below:
@@ -232,6 +232,6 @@ Above code will create instance of the requested type and resolve the parameter 
 }
 ```
 
-So the instantiation process `new model.type()` is the same as `new AltCoins()`. then we recursively resolve the `model.dependencies` that is `"Monitor"` and `QtySupply` then assigned them as the parameter of the `AltCoins` object using spread `...` operator.
+So the instantiation process `new model.type()` is the same as `new AltCoins()`. then we recursively resolve the `model.dependencies` that is `"Cardano"` and `QtySupply` then assigned them as the parameter of the `AltCoins` object using spread `...` operator.
 
 iocTest
