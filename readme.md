@@ -41,81 +41,33 @@ Install reflect-metadata on your project
 npm install reflect-metadata
 ```
 
-Download or copy the [file](https://raw.githubusercontent.com/ktutnik/my-own-ioc-container/master/src/ioc-container.ts) then drop it inside your project than you go.
-
 ## Constructor Injection
-Decorate class with `@inject.constructor()` to automatically inject registered type to the constructor parameters. You don't need to specify more configuration, the container has enough information about parameter type of the class as long as you enable the `emitDecoratorMetadata:true` in the `tsconfig.json` file. Keep in mind this automatic type detection only work for parameter of type ES6 classes.
+Decorate class with `@decorIn.constructor()` to automatically inject registered type to the constructor parameters. You don't need to specify more configuration, the container has enough information about parameter type of the class as long as you enable the `emitDecoratorMetadata:true` in the `tsconfig.json` file. Keep in mind this automatic type detection only work for parameter of type ES6 classes.
 
 ```typescript
-import { inject, Container } from "./ioc-container"
+import { decorIn, Container } from "./iocTest"
 
 class JetEngine { }
 
 @inject.constructor()
-class Plane {
+class Coin {
     constructor(private engine:JetEngine){}
 }
 
 const container = new Container()
 container.register(JetEngine)
-container.register(Plane)
+container.register(Coin)
 
-const plane = container.resolve(Plane)
+const coin = container.resolver(Coin)
 ```
 
-## Constructor Injection on Super Class
-If you want to register a class with default constructor (without specifying constructor on the class body) but the constructor itself stays in the base class which is parameterized. You need to decorate the base class with `@inject.constructor()`, registering the baseclass is optional, if you don't need it in the container you can skip registering the baseclass.
-
-```typescript
-import { inject, Container } from "./ioc-container"
-
-class JetEngine { }
-
-//the base class has parameterized constructor
-@inject.constructor()
-abstract class AbstractPlane {
-    constructor(private engine:JetEngine){}
-}
-//the implementation class doesn't specify constructor (default constructor)
-class Plane extends AbstractPlane {}
-
-const container = new Container()
-container.register(JetEngine)
-container.register(Plane)
-
-const plane = container.resolve(Plane)
-```
-
-## Interface Injection
-Interface injection actually impossible in TypeScript because the interface will be erased after transpile. You can use named injection to do interface injection
-
-```typescript
-import { inject, Container } from "./ioc-container"
-
-interface Engine { }
-class JetEngine implements Engine { }
-
-@inject.constructor()
-class Plane {
-    constructor(@inject.name("Engine") private engine:Engine){}
-}
-
-const container = new Container()
-container.register("Engine").asType(JetEngine)
-container.register(Plane)
-
-const plane = container.resolve(Plane)
-```
-
-> You can also resolve named type by specifying name of the type `container.resolve("Engine")`
-> 
 
 ## Instance Injection
 Sometime its not possible for you to register type because you need to manually instantiate the type. You can do it like below
 
 
 ```typescript
-import { inject, Container } from "./ioc-container"
+import { inject, Container } from "./iocTest"
 
 interface Engine { }
 class JetEngine implements Engine { }
@@ -129,141 +81,42 @@ const container = new Container()
 container.register("Engine").asInstance(new JetEngine())
 container.register(Plane)
 
-const plane = container.resolve(Plane)
+const plane = container.resolver(Coin)
 ```
 
-> Keep in mind that instance injection always follow the component lifestyle (transient/singleton)
+> Keep in mind that instance injection always follow the component lifestyle (plural/single)
 
-
-## Instance Injection with Dynamic Value
-Sometime the instance injected need to instantiated when the component resolved not when it registered, example injecting Date to the constructor like below:
-
-```typescript
-import { inject, Container } from "./ioc-container"
-
-interface Engine { }
-class JetEngine implements Engine {
-    constructor(refillTime:Date)
-}
-
-@inject.constructor()
-class Plane {
-    constructor(@inject.name("Engine") private engine:Engine){}
-}
 
 const container = new Container()
-container.register("Engine").asInstance(x => new JetEngine(new Date()))
-container.register(Plane)
+container.register("Coin").asInstance(x => new JetEngine(new Date()))
+container.register(Coin)
 
-const plane = container.resolve(Plane)
+const plane = container.resolver(Coin)
 ```
 
 By providing a function callback, the `new Date()` will be executed exactly after the `Plane` resolved. The x parameter of the callback is of type of `Kernel`, read explanation below for more detail.
 
-## Instance Injection that Depends on Other Component
-In some case injecting instance can be difficult, because its depends on other type registered in the container. You can do it like below
-
-```typescript
-import { inject, Container } from "./ioc-container"
-
-class Fuel {}
-interface Engine { }
-
-class JetEngine implements Engine {
-    constructor(private fuel:Fuel)
-}
-
-@inject.constructor()
-class Plane {
-    constructor(@inject.name("Engine") private engine:Engine){}
-}
-
-const container = new Container()
-container.register(Fuel)
-container.register("Engine").asInstance(kernel => new JetEngine(kernel.resolve(Fuel)))
-container.register(Plane)
-
-const plane = container.resolve(Plane)
-```
-
-## Auto Factory Injection
-Creating factory is possible by using instance injection like below
-
-```typescript
-import { inject, Kernel, Container } from "./ioc-container"
-
-class Plane { }
-
-class PlaneFactory {
-    constructor(private kernel:Kernel){}
-    get(){
-       this.kernel.resolve(Plane)
-    }
-}
-
-@inject.constructor()
-class PlaneProductionHouse {
-    constructor(@inject.name("PlaneFactory") private factory:PlaneFactory){}
-
-    producePlane(){
-       const plane = this.factory.get()
-    }
-}
-
-const container = new Container()
-container.register(Plane)
-container.register("PlaneFactory").asInstance(kernel => new PlaneFactory(kernel))
-container.register(PlaneProductionHouse)
-
-const productionHouse = container.resolve(PlaneProductionHouse)
-productionHouse.producePlane()
-```
-
-Above implementation makes you creating extra `PlaneFactory` class which has dependency to `Kernel` class which is not good. But by using Auto Factory injection you don't need to create the `PlaneFactory` class manually but the container will inject a factory for free:
 
 
-```typescript
-import { inject, AutoFactory, Container } from "./ioc-container"
-
-class Plane { }
-
-@inject.constructor()
-class PlaneProductionHouse {
-    constructor(@inject.name("PlaneFactory") private factory:AutoFactory<Plane>){}
-
-    producePlane(){
-       const plane = this.factory.get()
-    }
-}
-
-const container = new Container()
-container.register(Plane)
-container.register("PlaneFactory").asAutoFactory(Plane)
-container.register(PlaneProductionHouse)
-
-const productionHouse = container.resolve(PlaneProductionHouse)
-productionHouse.producePlane()
-```
-
-TIPS: It is better to register a factory with a more appropriate name like `AutoFactory<Plane>` to make the name injection more unique and appropriate.
+TIPS: It is better to register a factory with a more appropriate name like `Factory<Coin>` to make the name injection more unique and appropriate.
 
 ```typescript
 //registration
 container.register("AutoFactory<Plane>").asAutoFactory(Plane)
 //injection
-constructor(@inject.name("AutoFactory<Plane>") private factory:AutoFactory<Plane>){}
+constructor(@decorIn.name("Factory<Coin>") private factory:Factory<Coin>){}
 ```
 
-> `asAutoFactory` also work with named component by specifying name of the component in the parameter `asAutoFactory("<TheNameOfComponent>")`
+> `asFactory` also work with named component by specifying name of the component in the parameter `asFactory("<TheNameOfComponent>")`
 > 
-> Keep in mind the life style of the type returned by Auto Factory will respect the type registration, if you specify `.singleton()` after the `asAutoFactory()` registration it will become the life style of the Factory not the returned type.
+> by Factory will respect the type registration, if you specify `.single()` after the `asFactory()` registration it will become the life style of the Factory not the returned type.
 
 ## OnCreated hook and Interception
 OnCreated used when you want to modify the instance of the component. With this feature you can make an interception by modify the instance with Proxy. On this example we will use [Benalu 2.0.0-beta-1](http://github.com/ktutnik/benalu) as the proxy library.
 
 ```typescript
 import * as Benalu from "benalu"
-import { Container } from "./ioc-container"
+import { Container } from "./iocTest"
 
 class AltCoins {
     start() {
@@ -282,14 +135,14 @@ container.register(AltCoins)
                 console.log("AltCoins ready")
             }
         }).build())
-const computer = container.resolver(AltCoins)
-computer.start()
+const altcoins = container.resolver(AltCoins)
+altcoins.start()
 
 /*
 --- result:
-Before starting computer...
+Before starting altcoins...
 Starting......
-Computer ready
+altcoins ready
 */
 ```
 
@@ -301,9 +154,6 @@ Above code showing that we intercept the execution of `AltCoins.start()` method 
 
 Basically all IoC Container consist of two main big part: Registration part and Resolution part. Registration part convert registered type into component model, resolution part analyze the component model dependency graph and convert component model into type instance. 
 
-> NOTE
-> 
-> below explanation and code snippet intended to be as simple as possible to easier for you to understand. In the real implementation of My Own IoC Container is a lot more robust and extensible than that but still easy to understand.
 
 ## Registration 
 
